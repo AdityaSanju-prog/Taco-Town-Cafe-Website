@@ -1,15 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, User, LogOut, ShieldCheck, ChevronDown, Sparkles } from 'lucide-react';
+import { ShoppingCart, ShieldCheck } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { useAuth } from '../context/AuthContext';
-import { useState } from 'react';
 import tacoLogo from '../assets/taco-logo.png';
 
 const Navbar = ({ onCartOpen }) => {
   const { totalItems } = useCart();
-  const { user, logoutUser, openRoleModal, openUserAuthModal } = useAuth();
   const location = useLocation();
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
   const isActive = (path) => location.pathname === path;
 
@@ -38,60 +34,15 @@ const Navbar = ({ onCartOpen }) => {
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
-          {/* User / Portal Button */}
-          {user ? (
-            <div className="relative">
-              <button
-                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                className="flex items-center gap-2 bg-cafe-bg hover:bg-orange-50 border border-cafe-border text-secondary px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
-                id="user-profile-btn"
-              >
-                <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold">
-                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                </div>
-                <span className="max-w-[100px] truncate">{user.name}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-cafe-muted" />
-              </button>
-
-              {userDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-cafe-border p-2 z-50 animate-scale-up">
-                  <div className="px-3 py-2 border-b border-cafe-border mb-1">
-                    <p className="text-xs font-bold text-secondary truncate">{user.name}</p>
-                    <p className="text-[10px] text-cafe-muted truncate">{user.email}</p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setUserDropdownOpen(false);
-                      openRoleModal();
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-cafe-text hover:bg-cafe-bg rounded-xl flex items-center gap-2 transition-colors"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-primary" />
-                    Switch Role / Portal
-                  </button>
-                  <button
-                    onClick={() => {
-                      setUserDropdownOpen(false);
-                      logoutUser();
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-xl flex items-center gap-2 transition-colors"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    Sign Out
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <button
-              onClick={openRoleModal}
-              className="flex items-center gap-1.5 bg-secondary text-white hover:bg-secondary-light px-3 py-2 rounded-xl font-semibold text-xs transition-all shadow-sm"
-              id="portal-btn"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-accent" />
-              <span>Portal / Sign In</span>
-            </button>
-          )}
+          {/* Admin Staff Portal Link */}
+          <Link
+            to="/admin"
+            className="hidden sm:flex items-center gap-1.5 bg-cafe-bg hover:bg-orange-50 border border-cafe-border text-secondary px-3 py-1.5 rounded-xl font-semibold text-xs transition-all"
+            id="admin-portal-link"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+            <span>Staff Login</span>
+          </Link>
 
           {/* Cart Button */}
           <button

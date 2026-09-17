@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Phone, MapPin, Building, Banknote, Loader2, ChevronLeft, Tag, Check, X } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { useAuth } from '../context/AuthContext';
 import { placeOrder } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -49,21 +48,19 @@ const VALID_COUPONS = {
 
 const Checkout = () => {
   const { items, totalAmount, clearCart } = useCart();
-  const { user, openUserAuthModal } = useAuth();
   const navigate = useNavigate();
 
-  const [form, setForm] = useState(() => ({
-    name: user?.name || '',
-    phone: user?.phone || '',
+  const [form, setForm] = useState({
+    name: '',
+    phone: '',
     hostel: '',
     customHostel: '',
     address: '',
-  }));
+  });
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-
 
   // Discount calculation
   const calculateDiscount = () => {
@@ -170,7 +167,9 @@ const Checkout = () => {
       const res = await placeOrder(orderData);
       clearCart();
       toast.success('Order placed successfully! 🎉');
-      navigate(`/order-confirmation/${res.data.data.orderId}`, { state: { order: res.data.data } });
+      const orderObj = res.data?.data || res.data;
+      const orderId = orderObj?.orderId || orderObj?._id || 'TT-ORDER';
+      navigate(`/order-confirmation/${orderId}`, { state: { order: orderObj } });
     } catch (err) {
       const msg = err.response?.data?.message || 'Failed to place order. Please try again.';
       toast.error(msg);
@@ -200,31 +199,11 @@ const Checkout = () => {
 
       <h1 className="font-display text-2xl font-bold text-secondary mb-4">Checkout</h1>
 
-      {!user && (
-        <div className="mb-6 p-4 bg-orange-50 border border-primary/20 rounded-2xl flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🌮</span>
-            <div>
-              <p className="font-bold text-secondary text-sm">Have a Customer Account?</p>
-              <p className="text-xs text-cafe-muted">Sign in for faster checkout & tracking orders easily.</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => openUserAuthModal('login')}
-            className="btn-primary text-xs py-2 px-3 font-bold"
-          >
-            Sign In / Register
-          </button>
-        </div>
-      )}
-
       <div className="grid md:grid-cols-2 gap-6">
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4" id="checkout-form">
           <div className="card p-5 space-y-4">
             <h2 className="font-display font-semibold text-secondary text-lg">Customer & Delivery Details</h2>
-
 
             {/* Name */}
             <div>

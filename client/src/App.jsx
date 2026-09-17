@@ -2,12 +2,9 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { CartProvider } from './context/CartContext';
-import { AuthProvider, useAuth } from './context/AuthContext';
 
 import Navbar from './components/Navbar';
 import CartDrawer from './components/CartDrawer';
-import RoleSelectorModal from './components/RoleSelectorModal';
-import UserAuthModal from './components/UserAuthModal';
 
 import Home from './pages/Home';
 import Menu from './pages/Menu';
@@ -38,7 +35,6 @@ const ScrollToTop = () => {
 // Customer layout wrapper
 const CustomerLayout = ({ children }) => {
   const [cartOpen, setCartOpen] = useState(false);
-  const { openRoleModal } = useAuth();
 
   return (
     <>
@@ -55,14 +51,6 @@ const CustomerLayout = ({ children }) => {
           <span className="text-lg">🍽️</span>
           <span className="text-[10px] font-medium">Menu</span>
         </Link>
-        <button
-          onClick={openRoleModal}
-          className="flex-1 flex flex-col items-center justify-center py-2 text-cafe-muted hover:text-primary transition-colors gap-0.5"
-          id="mobile-portal-btn"
-        >
-          <span className="text-lg">⚙️</span>
-          <span className="text-[10px] font-medium">Portal</span>
-        </button>
         <Link to="/track" className="flex-1 flex flex-col items-center justify-center py-2 text-cafe-muted hover:text-primary transition-colors gap-0.5">
           <span className="text-lg">📍</span>
           <span className="text-[10px] font-medium">Track</span>
@@ -80,51 +68,41 @@ const CustomerLayout = ({ children }) => {
   );
 };
 
-function AppContent() {
-  return (
-    <CartProvider>
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 3000,
-          style: {
-            borderRadius: '12px',
-            fontFamily: 'Inter, sans-serif',
-            fontSize: '14px',
-          },
-          success: { iconTheme: { primary: '#FF6B35', secondary: '#fff' } },
-        }}
-      />
-      <RoleSelectorModal />
-      <UserAuthModal />
-      <Routes>
-        {/* Customer Routes */}
-        <Route path="/" element={<CustomerLayout><Home /></CustomerLayout>} />
-        <Route path="/menu" element={<CustomerLayout><Menu /></CustomerLayout>} />
-        <Route path="/checkout" element={<CustomerLayout><Checkout /></CustomerLayout>} />
-        <Route path="/order-confirmation/:id" element={<CustomerLayout><OrderConfirmation /></CustomerLayout>} />
-        <Route path="/track" element={<CustomerLayout><TrackOrder /></CustomerLayout>} />
-
-        {/* Admin Routes */}
-        <Route path="/admin" element={<AdminLogin />} />
-        <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/admin/orders" element={<ProtectedRoute><AdminOrders /></ProtectedRoute>} />
-        <Route path="/admin/menu" element={<ProtectedRoute><AdminMenu /></ProtectedRoute>} />
-
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </CartProvider>
-  );
-}
-
 function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <CartProvider>
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              borderRadius: '12px',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '14px',
+            },
+            success: { iconTheme: { primary: '#FF6B35', secondary: '#fff' } },
+          }}
+        />
+        <Routes>
+          {/* Customer Routes */}
+          <Route path="/" element={<CustomerLayout><Home /></CustomerLayout>} />
+          <Route path="/menu" element={<CustomerLayout><Menu /></CustomerLayout>} />
+          <Route path="/checkout" element={<CustomerLayout><Checkout /></CustomerLayout>} />
+          <Route path="/order-confirmation/:id" element={<CustomerLayout><OrderConfirmation /></CustomerLayout>} />
+          <Route path="/track" element={<CustomerLayout><TrackOrder /></CustomerLayout>} />
+
+          {/* Admin Routes */}
+          <Route path="/admin" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/orders" element={<ProtectedRoute><AdminOrders /></ProtectedRoute>} />
+          <Route path="/admin/menu" element={<ProtectedRoute><AdminMenu /></ProtectedRoute>} />
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </CartProvider>
     </BrowserRouter>
   );
 }
