@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'chachu_cafe_super_secret_2024';
@@ -33,33 +34,40 @@ router.post('/register', async (req, res) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
+    const isDbConnected = mongoose.connection.readyState === 1;
     let newUserObj = null;
 
-    try {
-      const existingUser = await User.findOne({ email: cleanEmail });
-      if (existingUser) {
-        return res.status(400).json({ success: false, message: 'An account with this email already exists' });
+    if (isDbConnected) {
+      try {
+        const existingUser = await User.findOne({ email: cleanEmail });
+        if (existingUser) {
+          return res.status(400).json({ success: false, message: 'An account with this email already exists' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const dbUser = await User.create({
+          name,
+          email: cleanEmail,
+          password: hashedPassword,
+          phone: phone || '',
+          role: 'user',
+        });
+
+        newUserObj = {
+          id: dbUser._id,
+          name: dbUser.name,
+          email: dbUser.email,
+          phone: dbUser.phone,
+          role: dbUser.role,
+        };
+      } catch (dbErr) {
+        console.error('DB User creation error, falling back to memory:', dbErr.message);
       }
+    }
 
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-
-      const dbUser = await User.create({
-        name,
-        email: cleanEmail,
-        password: hashedPassword,
-        phone: phone || '',
-        role: 'user',
-      });
-
-      newUserObj = {
-        id: dbUser._id,
-        name: dbUser.name,
-        email: dbUser.email,
-        phone: dbUser.phone,
-        role: dbUser.role,
-      };
-    } catch (dbErr) {
+    if (!newUserObj) {
       if (inMemoryUsers.has(cleanEmail)) {
         return res.status(400).json({ success: false, message: 'An account with this email already exists' });
       }
@@ -109,12 +117,15 @@ router.post('/login', async (req, res) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
+    const isDbConnected = mongoose.connection.readyState === 1;
     let foundUser = null;
 
-    try {
-      foundUser = await User.findOne({ email: cleanEmail });
-    } catch {
-      // fallback
+    if (isDbConnected) {
+      try {
+        foundUser = await User.findOne({ email: cleanEmail });
+      } catch {
+        // fallback
+      }
     }
 
     if (!foundUser) {
@@ -158,10 +169,14 @@ router.post('/login', async (req, res) => {
 router.get('/me', verifyUserToken, async (req, res) => {
   try {
     let user = null;
-    try {
-      user = await User.findById(req.user.id).select('-password');
-    } catch {
-      // fallback
+    const isDbConnected = mongoose.connection.readyState === 1;
+
+    if (isDbConnected) {
+      try {
+        user = await User.findById(req.user.id).select('-password');
+      } catch {
+        // fallback
+      }
     }
     if (!user) {
       for (const u of inMemoryUsers.values()) {
