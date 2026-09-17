@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Builds & Outputs
+dist/
+client/dist/
+.vercel/
+*.log
+
+# Environment Variables
+.env
+server/.env
+client/.env
+.env.local
+
+# OS / Editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

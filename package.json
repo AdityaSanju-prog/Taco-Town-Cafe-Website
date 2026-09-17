@@ -1,0 +1,14 @@
+{
+  "name": "taco-town-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Taco Town Cafe ordering website",
+  "scripts": {
+    "dev": "npm run dev --prefix server & npm run dev --prefix client",
+    "start": "npm start --prefix server & npm run dev --prefix client",
+    "build": "npm run build --prefix client",
+    "server": "npm run dev --prefix server",
+    "client": "npm run dev --prefix client"
+  }
+}
+
