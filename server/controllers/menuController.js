@@ -102,12 +102,12 @@ exports.createMenuItem = async (req, res) => {
       item = new Menu(req.body);
       await item.save();
     } catch {
-      item = { _id: Date.now().toString(), ...req.body, available: true };
-      inMemoryMenu.push(item);
+      item = { _id: `mem_menu_${Date.now()}`, ...req.body, available: req.body.available !== false };
+      inMemoryMenu.unshift(item);
     }
-    res.status(201).json({ success: true, data: item });
+    return res.status(201).json({ success: true, data: item });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    return res.status(400).json({ success: false, message: err.message });
   }
 };
 
@@ -115,11 +115,17 @@ exports.createMenuItem = async (req, res) => {
 exports.updateMenuItem = async (req, res) => {
   try {
     let item = null;
-    try {
-      item = await Menu.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-    } catch {
-      // fallback
+    const mongoose = require('mongoose');
+    const isValidId = mongoose.Types.ObjectId.isValid(req.params.id);
+
+    if (isValidId) {
+      try {
+        item = await Menu.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true }).maxTimeMS(2000);
+      } catch {
+        // fallback
+      }
     }
+
     if (!item) {
       const idx = inMemoryMenu.findIndex(i => i._id === req.params.id);
       if (idx !== -1) {
@@ -127,23 +133,34 @@ exports.updateMenuItem = async (req, res) => {
         item = inMemoryMenu[idx];
       }
     }
-    if (!item) return res.status(404).json({ success: false, message: 'Item not found' });
-    res.json({ success: true, data: item });
+
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Item not found' });
+    }
+
+    return res.json({ success: true, data: item });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    return res.status(400).json({ success: false, message: err.message });
   }
 };
 
 // DELETE /api/menu/:id — delete item (admin)
 exports.deleteMenuItem = async (req, res) => {
   try {
-    try {
-      await Menu.findByIdAndDelete(req.params.id);
-    } catch {
-      inMemoryMenu = inMemoryMenu.filter(i => i._id !== req.params.id);
+    const mongoose = require('mongoose');
+    const isValidId = mongoose.Types.ObjectId.isValid(req.params.id);
+
+    if (isValidId) {
+      try {
+        await Menu.findByIdAndDelete(req.params.id).maxTimeMS(2000);
+      } catch {
+        // fallback
+      }
     }
-    res.json({ success: true, message: 'Item deleted successfully' });
+
+    inMemoryMenu = inMemoryMenu.filter(i => i._id !== req.params.id);
+    return res.json({ success: true, message: 'Item deleted successfully' });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };

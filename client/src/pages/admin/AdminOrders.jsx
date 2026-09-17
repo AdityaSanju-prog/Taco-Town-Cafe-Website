@@ -65,13 +65,15 @@ const AdminOrders = () => {
   const handleStatusUpdate = async (orderId, newStatus) => {
     setUpdatingId(orderId);
     try {
-      await updateOrderStatus(orderId, newStatus);
+      const res = await updateOrderStatus(orderId, newStatus);
+      const updatedOrder = res.data?.data || res.data;
       setOrders(prev =>
-        prev.map(o => o._id === orderId ? { ...o, status: newStatus } : o)
+        prev.map(o => (o._id === orderId || o.orderId === orderId) ? { ...o, status: newStatus, ...updatedOrder } : o)
       );
       toast.success(`Order marked as ${newStatus}`);
-    } catch {
-      toast.error('Failed to update status');
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      toast.error(err.response?.data?.message || 'Failed to update status');
     } finally {
       setUpdatingId(null);
     }

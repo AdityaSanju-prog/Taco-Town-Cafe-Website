@@ -94,12 +94,22 @@ exports.updateOrderStatus = async (req, res) => {
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ success: false, message: 'Invalid status' });
     }
+
     let order = null;
+    const mongoose = require('mongoose');
+    const isValidObjectId = mongoose.Types.ObjectId.isValid(req.params.id);
+
     try {
-      order = await Order.findByIdAndUpdate(req.params.id, { status }, { new: true });
+      if (isValidObjectId) {
+        order = await Order.findByIdAndUpdate(req.params.id, { status }, { new: true }).maxTimeMS(2000);
+      }
+      if (!order) {
+        order = await Order.findOneAndUpdate({ orderId: req.params.id }, { status }, { new: true }).maxTimeMS(2000);
+      }
     } catch {
-      // fallback
+      // fallback to memory
     }
+
     if (!order) {
       const idx = inMemoryOrders.findIndex(o => o._id === req.params.id || o.orderId === req.params.id);
       if (idx !== -1) {
@@ -107,10 +117,14 @@ exports.updateOrderStatus = async (req, res) => {
         order = inMemoryOrders[idx];
       }
     }
-    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
-    res.json({ success: true, data: order });
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    return res.json({ success: true, data: order });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 

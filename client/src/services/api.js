@@ -5,22 +5,12 @@ const API = axios.create({
   timeout: 10000,
 });
 
-// Attach Admin JWT token ONLY for staff / admin routes
+// Attach Admin JWT token if present
 API.interceptors.request.use((config) => {
   const adminToken = localStorage.getItem('chachu_admin_token');
-
-  // Check if request is an admin route
-  const isAdminRoute =
-    config.url.includes('/admin') ||
-    config.url.includes('/menu/admin') ||
-    (config.url === '/orders' && config.method === 'get') ||
-    (config.url.startsWith('/orders/') && config.method === 'put') ||
-    config.url === '/orders/stats';
-
-  if (isAdminRoute && adminToken) {
+  if (adminToken) {
     config.headers.Authorization = `Bearer ${adminToken}`;
   }
-
   return config;
 });
 
