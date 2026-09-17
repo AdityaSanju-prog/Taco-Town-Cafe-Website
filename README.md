@@ -1,4 +1,4 @@
-# ☕ Chachu Café — Ordering Website MVP
+# ☕ Taco Town cafe — Ordering Website MVP
 
 A **mobile-first food ordering website** for Chachu Café, located at Lowgate near LPU. Built for students to browse and order chai, sandwiches, pizza, and confectionery online.
 
