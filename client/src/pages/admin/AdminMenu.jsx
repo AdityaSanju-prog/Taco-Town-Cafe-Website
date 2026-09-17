@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, ShoppingBag, LogOut, Coffee, Menu as MenuIcon,
+  LayoutDashboard, ShoppingBag, LogOut, Menu as MenuIcon,
   Plus, Edit2, Trash2, CheckCircle, XCircle, RefreshCw, Loader2, X
 } from 'lucide-react';
 import { fetchAdminMenu, createMenuItem, updateMenuItem, deleteMenuItem } from '../../services/api';
@@ -25,9 +25,11 @@ const AdminMenu = () => {
     setLoading(true);
     try {
       const res = await fetchAdminMenu();
-      setItems(res.data.data);
-    } catch {
-      toast.error('Failed to load menu');
+      const dataList = Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
+      setItems(dataList);
+    } catch (err) {
+      console.error('Failed to load admin menu:', err);
+      toast.error('Failed to load admin menu');
     } finally {
       setLoading(false);
     }

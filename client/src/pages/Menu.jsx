@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Filter, Loader2, AlertCircle } from 'lucide-react';
+import { Search, Loader2, AlertCircle } from 'lucide-react';
 import MenuItemCard from '../components/MenuItemCard';
 import { fetchMenu } from '../services/api';
 
@@ -32,9 +32,11 @@ const Menu = () => {
       try {
         const cat = activeCategory === 'All' ? null : activeCategory;
         const res = await fetchMenu(cat);
-        setItems(res.data.data);
+        const dataList = Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
+        setItems(dataList);
       } catch (err) {
-        setError('Failed to load menu. Please check if the server is running.');
+        console.error('Failed to load customer menu:', err);
+        setError('Failed to load menu. Please retry.');
       } finally {
         setLoading(false);
       }
@@ -52,7 +54,7 @@ const Menu = () => {
   const filtered = search
     ? items.filter(item =>
         item.name.toLowerCase().includes(search.toLowerCase()) ||
-        item.description.toLowerCase().includes(search.toLowerCase())
+        (item.description && item.description.toLowerCase().includes(search.toLowerCase()))
       )
     : items;
 

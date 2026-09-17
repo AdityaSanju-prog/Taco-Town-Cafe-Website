@@ -5,12 +5,32 @@ const API = axios.create({
   timeout: 10000,
 });
 
-// Attach JWT token for requests (User or Admin)
+// Attach JWT token selectively (Admin token for admin routes, User token for user routes)
 API.interceptors.request.use((config) => {
-  const userToken = localStorage.getItem('tacotown_user_token');
   const adminToken = localStorage.getItem('chachu_admin_token');
-  const token = adminToken || userToken;
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  const userToken = localStorage.getItem('tacotown_user_token');
+
+  // Admin routes get admin token
+  if (config.url.includes('/admin') || (config.url.includes('/orders') && config.method !== 'post' && !config.url.includes('/user'))) {
+    if (adminToken) {
+      config.headers.Authorization = `Bearer ${adminToken}`;
+      return config;
+    }
+  }
+
+  // User profile routes get user token
+  if (config.url.includes('/user/me')) {
+    if (userToken) {
+      config.headers.Authorization = `Bearer ${userToken}`;
+    }
+    return config;
+  }
+
+  // Generic admin authorization fallback if admin is logged in
+  if (adminToken && !userToken) {
+    config.headers.Authorization = `Bearer ${adminToken}`;
+  }
+
   return config;
 });
 
@@ -42,4 +62,3 @@ export const adminLogin = (credentials) =>
   API.post('/admin/login', credentials);
 
 export default API;
-
