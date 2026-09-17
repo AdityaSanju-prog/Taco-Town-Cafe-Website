@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, RefreshCw } from 'lucide-react';
 import MenuItemCard from '../components/MenuItemCard';
 import { fetchMenu } from '../services/api';
 
@@ -47,7 +47,7 @@ const Menu = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryFromUrl = searchParams.get('category') || 'All';
 
-  const [items, setItems] = useState(INITIAL_FALLBACK_MENU);
+  const [allItems, setAllItems] = useState(INITIAL_FALLBACK_MENU);
   const [loading, setLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState(categoryFromUrl);
   const [search, setSearch] = useState('');
@@ -57,23 +57,23 @@ const Menu = () => {
     setActiveCategory(categoryFromUrl);
   }, [categoryFromUrl]);
 
+  // Load full menu once from server to sync latest items
   useEffect(() => {
-    const load = async () => {
+    const loadAllMenu = async () => {
       try {
-        const cat = activeCategory === 'All' ? null : activeCategory;
-        const res = await fetchMenu(cat);
+        const res = await fetchMenu();
         const dataList = Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
         if (dataList && dataList.length > 0) {
-          setItems(dataList);
+          setAllItems(dataList);
         }
       } catch (err) {
-        console.error('Menu load fallback active:', err);
+        console.warn('Using initial fallback menu array:', err);
       } finally {
         setLoading(false);
       }
     };
-    load();
-  }, [activeCategory]);
+    loadAllMenu();
+  }, []);
 
   const handleCategoryChange = (cat) => {
     setActiveCategory(cat);
@@ -82,9 +82,12 @@ const Menu = () => {
     else setSearchParams({ category: cat });
   };
 
+  // Filter available items by selected category
+  const availableItems = allItems.filter(item => item.available !== false);
+
   const categoryFiltered = activeCategory === 'All'
-    ? items
-    : items.filter(item => item.category === activeCategory);
+    ? availableItems
+    : availableItems.filter(item => item.category === activeCategory);
 
   const filtered = search
     ? categoryFiltered.filter(item =>
@@ -96,14 +99,14 @@ const Menu = () => {
   return (
     <main className="flex-1 pb-24" id="menu-page">
       {/* Header */}
-      <div className="bg-white border-b border-cafe-border sticky top-16 z-30">
+      <div className="bg-white border-b border-cafe-border sticky top-16 z-30 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 py-3">
           {/* Search */}
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cafe-muted" />
             <input
               type="text"
-              placeholder="Search menu..."
+              placeholder="Search tacos, chai, pizza, sandwiches..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="input-field pl-10 py-2.5 text-sm"
@@ -120,8 +123,8 @@ const Menu = () => {
                 id={`tab-${cat.toLowerCase()}`}
                 className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${
                   activeCategory === cat
-                    ? 'bg-primary text-white shadow-md'
-                    : 'bg-cafe-bg text-cafe-muted hover:bg-cafe-border'
+                    ? 'bg-primary text-white shadow-md scale-105'
+                    : 'bg-cafe-bg text-cafe-muted hover:bg-cafe-border hover:text-secondary'
                 }`}
               >
                 <span>{CAT_EMOJI[cat]}</span> {cat}
@@ -134,8 +137,13 @@ const Menu = () => {
       <div className="max-w-5xl mx-auto px-4 py-4">
         {/* Count */}
         {!loading && (
-          <p className="text-cafe-muted text-sm mb-3">
-            {filtered.length} item{filtered.length !== 1 ? 's' : ''} {activeCategory !== 'All' ? `in ${activeCategory}` : 'available'}
+          <p className="text-cafe-muted text-sm mb-4 font-medium flex items-center justify-between">
+            <span>Showing {filtered.length} item{filtered.length !== 1 ? 's' : ''} {activeCategory !== 'All' ? `in ${activeCategory}` : 'on the menu'}</span>
+            {search && (
+              <button onClick={() => setSearch('')} className="text-primary hover:underline text-xs">
+                Clear search
+              </button>
+            )}
           </p>
         )}
 
@@ -151,10 +159,13 @@ const Menu = () => {
         {!loading && (
           <>
             {filtered.length === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-5xl mb-3">🔍</p>
-                <p className="font-semibold text-secondary">No items found</p>
-                <p className="text-cafe-muted text-sm mt-1">Try a different search or category</p>
+              <div className="text-center py-20 bg-white rounded-3xl border border-cafe-border p-8">
+                <p className="text-5xl mb-3">🌮</p>
+                <p className="font-display font-bold text-secondary text-lg">No items found</p>
+                <p className="text-cafe-muted text-sm mt-1">Try selecting another category or clear your search query.</p>
+                <button onClick={() => { handleCategoryChange('All'); setSearch(''); }} className="btn-primary text-sm mt-4 py-2 px-4">
+                  View Full Menu
+                </button>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">

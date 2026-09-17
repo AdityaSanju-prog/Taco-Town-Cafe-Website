@@ -1,23 +1,28 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, ShoppingBag, LogOut, Menu as MenuIcon,
   Plus, Edit2, Trash2, CheckCircle, XCircle, RefreshCw, Loader2, X
 } from 'lucide-react';
 import { fetchAdminMenu, createMenuItem, updateMenuItem, deleteMenuItem } from '../../services/api';
 import toast from 'react-hot-toast';
-import tacoLogo from '../../assets/taco-logo.png';
+import AdminLayout from '../../components/AdminLayout';
 
 const CATEGORIES = ['Tacos', 'Chai', 'Sandwiches', 'Pizza', 'Confectionery'];
 
+const CATEGORY_IMAGES = {
+  Tacos: 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=400',
+  Chai: 'https://images.unsplash.com/photo-1571934811356-5cc061b6821f?w=400',
+  Sandwiches: 'https://images.unsplash.com/photo-1553909489-cd47e0ef937f?w=400',
+  Pizza: 'https://images.unsplash.com/photo-1604382355076-af4b0eb60143?w=400',
+  Confectionery: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=400',
+};
+
 const AdminMenu = () => {
-  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [form, setForm] = useState({
-    name: '', description: '', price: '', category: 'Chai', image: '', available: true, popular: false
+    name: '', description: '', price: '', category: 'Tacos', image: '', available: true, popular: false
   });
   const [saving, setSaving] = useState(false);
 
@@ -29,7 +34,7 @@ const AdminMenu = () => {
       setItems(dataList);
     } catch (err) {
       console.error('Failed to load admin menu:', err);
-      toast.error('Failed to load admin menu');
+      toast.error('Failed to load admin menu from server');
     } finally {
       setLoading(false);
     }
@@ -37,21 +42,21 @@ const AdminMenu = () => {
 
   useEffect(() => { loadMenu(); }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('chachu_admin_token');
-    navigate('/admin');
-  };
-
   const openModal = (item = null) => {
     if (item) {
       setEditingItem(item);
       setForm({
-        name: item.name, description: item.description, price: item.price,
-        category: item.category, image: item.image, available: item.available, popular: item.popular
+        name: item.name,
+        description: item.description || '',
+        price: item.price,
+        category: item.category || 'Tacos',
+        image: item.image || '',
+        available: item.available !== false,
+        popular: !!item.popular
       });
     } else {
       setEditingItem(null);
-      setForm({ name: '', description: '', price: '', category: 'Chai', image: '', available: true, popular: false });
+      setForm({ name: '', description: '', price: '', category: 'Tacos', image: '', available: true, popular: false });
     }
     setIsModalOpen(true);
   };
@@ -64,178 +69,183 @@ const AdminMenu = () => {
       toast.error('Please fill required fields (Name, Price, Category)');
       return;
     }
+
+    const itemData = {
+      ...form,
+      price: Number(form.price),
+      image: form.image || CATEGORY_IMAGES[form.category] || CATEGORY_IMAGES.Tacos
+    };
+
     setSaving(true);
     try {
       if (editingItem) {
-        await updateMenuItem(editingItem._id, form);
+        const res = await updateMenuItem(editingItem._id, itemData);
+        const updated = res.data?.data || res.data || itemData;
+        setItems(prev => prev.map(i => i._id === editingItem._id ? { ...i, ...updated } : i));
         toast.success('Item updated successfully');
       } else {
-        await createMenuItem(form);
+        const res = await createMenuItem(itemData);
+        const created = res.data?.data || res.data || { _id: Date.now().toString(), ...itemData };
+        setItems(prev => [created, ...prev]);
         toast.success('Item created successfully');
       }
       closeModal();
-      loadMenu();
     } catch (err) {
-      toast.error('Failed to save item');
+      console.error('Save item error:', err);
+      toast.error(err.response?.data?.message || 'Failed to save item');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this item?')) {
+    if (window.confirm('Are you sure you want to delete this menu item?')) {
       try {
         await deleteMenuItem(id);
         toast.success('Item deleted');
-        setItems(items.filter(i => i._id !== id));
-      } catch {
-        toast.error('Failed to delete item');
+        setItems(prev => prev.filter(i => i._id !== id));
+      } catch (err) {
+        console.error('Delete item error:', err);
+        toast.error(err.response?.data?.message || 'Failed to delete item');
       }
     }
   };
 
   const toggleAvailability = async (item) => {
+    const newStatus = !item.available;
+    // Optimistic local UI update
+    setItems(prev => prev.map(i => i._id === item._id ? { ...i, available: newStatus } : i));
+
     try {
-      await updateMenuItem(item._id, { available: !item.available });
-      setItems(items.map(i => i._id === item._id ? { ...i, available: !item.available } : i));
-      toast.success(`${item.name} is now ${!item.available ? 'Available' : 'Unavailable'}`);
-    } catch {
-      toast.error('Failed to update availability');
+      await updateMenuItem(item._id, { available: newStatus });
+      toast.success(`${item.name} is now ${newStatus ? 'Available' : 'Out of Stock'}`);
+    } catch (err) {
+      console.error('Toggle availability error:', err);
+      toast.error('Failed to update stock status on server');
     }
   };
 
   return (
-    <div className="min-h-screen bg-cafe-bg flex" id="admin-menu-page">
-      {/* Sidebar */}
-      <aside className="hidden md:flex w-56 bg-secondary flex-col fixed h-full z-20">
-        <div className="p-5 border-b border-white/10">
-          <div className="flex items-center gap-2.5">
-            <img
-              src={tacoLogo}
-              alt="Taco Town Logo"
-              className="w-8 h-8 object-contain rounded-lg bg-white p-0.5"
-            />
-            <div>
-              <p className="font-display font-bold text-white text-sm">Taco Town Admin</p>
-              <p className="text-gray-400 text-xs">Café Panel</p>
-            </div>
-          </div>
+    <AdminLayout title="Menu Management">
+      {/* Top Header */}
+      <div className="bg-white border-b border-cafe-border px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+        <div>
+          <h1 className="font-display font-bold text-lg md:text-xl text-secondary">Menu Management</h1>
+          <p className="text-cafe-muted text-xs">Add, edit, or toggle stock availability of menu items</p>
         </div>
-        <nav className="flex-1 p-4 space-y-1">
-          <Link to="/admin/dashboard" className="flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl font-medium text-sm transition-all">
-            <LayoutDashboard className="w-4 h-4" /> Dashboard
-          </Link>
-          <Link to="/admin/orders" className="flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl font-medium text-sm transition-all">
-            <ShoppingBag className="w-4 h-4" /> Orders
-          </Link>
-          <Link to="/admin/menu" className="flex items-center gap-3 px-3 py-2.5 bg-primary/20 text-primary rounded-xl font-medium text-sm">
-            <MenuIcon className="w-4 h-4" /> Menu
-          </Link>
-        </nav>
-        <div className="p-4 border-t border-white/10">
-          <button onClick={handleLogout} className="flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-red-400 hover:bg-red-400/10 rounded-xl font-medium text-sm transition-all w-full">
-            <LogOut className="w-4 h-4" /> Logout
+        <div className="flex gap-2">
+          <button onClick={loadMenu} className="p-2 rounded-lg hover:bg-cafe-bg text-cafe-muted hover:text-secondary">
+            <RefreshCw className="w-4 h-4" />
+          </button>
+          <button onClick={() => openModal()} className="btn-primary text-xs md:text-sm py-2 px-3 md:px-4 flex items-center gap-1.5 shadow-sm">
+            <Plus className="w-4 h-4" /> Add Item
           </button>
         </div>
-      </aside>
+      </div>
 
-      {/* Main */}
-      <main className="flex-1 md:ml-56">
-        <div className="bg-white border-b border-cafe-border px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-          <h1 className="font-display font-bold text-xl text-secondary">Menu Management</h1>
-          <div className="flex gap-3">
-            <button onClick={loadMenu} className="p-2 rounded-lg hover:bg-cafe-bg text-cafe-muted hover:text-secondary">
-              <RefreshCw className="w-4 h-4" />
-            </button>
-            <button onClick={() => openModal()} className="btn-primary text-sm py-2 px-4 flex items-center gap-2">
-              <Plus className="w-4 h-4" /> Add Item
-            </button>
+      <div className="p-4 md:p-6">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
           </div>
-        </div>
-
-        <div className="p-4 md:p-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-24"><Loader2 className="w-10 h-10 text-primary animate-spin" /></div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {items.map(item => (
-                <div key={item._id} className={`card p-4 flex gap-4 transition-all ${!item.available ? 'opacity-70 grayscale-[0.5]' : ''}`}>
-                  <img src={item.image || 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=100'} alt={item.name} className="w-20 h-20 rounded-lg object-cover flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="font-semibold text-secondary text-sm truncate">{item.name}</h3>
-                      <span className="font-bold text-primary text-sm">₹{item.price}</span>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {items.map(item => (
+              <div key={item._id} className={`card p-4 flex gap-3 transition-all ${!item.available ? 'opacity-70 bg-gray-50 border-gray-200' : 'hover:shadow-card-hover'}`}>
+                <img
+                  src={item.image || CATEGORY_IMAGES[item.category] || CATEGORY_IMAGES.Tacos}
+                  alt={item.name}
+                  className="w-20 h-20 rounded-xl object-cover flex-shrink-0 bg-cafe-border"
+                  onError={(e) => { e.target.onerror = null; e.target.src = CATEGORY_IMAGES.Tacos; }}
+                />
+                <div className="flex-1 min-w-0 flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start gap-1 mb-0.5">
+                      <h3 className="font-display font-semibold text-secondary text-sm truncate">{item.name}</h3>
+                      <span className="font-bold text-primary text-sm flex-shrink-0">₹{item.price}</span>
                     </div>
-                    <p className="text-xs text-cafe-muted mb-2">{item.category}</p>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => toggleAvailability(item)} className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold uppercase ${item.available ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}>
-                        {item.available ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />} {item.available ? 'In Stock' : 'Out of Stock'}
+                    <p className="text-[11px] text-cafe-muted line-clamp-1">{item.category} · {item.description}</p>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 pt-1 border-t border-cafe-border">
+                    <button
+                      onClick={() => toggleAvailability(item)}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase transition-colors ${
+                        item.available ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'
+                      }`}
+                    >
+                      {item.available ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                      {item.available ? 'In Stock' : 'Out of Stock'}
+                    </button>
+                    <div className="ml-auto flex items-center gap-1">
+                      <button onClick={() => openModal(item)} className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors" title="Edit">
+                        <Edit2 className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => openModal(item)} className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => handleDelete(item._id)} className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => handleDelete(item._id)} className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors" title="Delete">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </main>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-fade-in">
             <div className="p-4 border-b border-cafe-border flex justify-between items-center bg-cafe-bg">
-              <h2 className="font-display font-bold text-secondary text-lg">{editingItem ? 'Edit Item' : 'New Item'}</h2>
+              <h2 className="font-display font-bold text-secondary text-base">{editingItem ? 'Edit Menu Item' : 'Create New Menu Item'}</h2>
               <button onClick={closeModal} className="p-1 text-cafe-muted hover:text-secondary rounded-full hover:bg-white"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleSubmit} className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="p-5 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <label className="text-sm font-medium text-cafe-text mb-1 block">Name</label>
-                  <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="input-field py-2" required />
+                  <label className="text-xs font-semibold text-cafe-text mb-1 block">Item Name</label>
+                  <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="input-field py-2 text-sm" placeholder="e.g. Crispy Veg Taco" required />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-cafe-text mb-1 block">Price (₹)</label>
-                  <input type="number" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="input-field py-2" required />
+                  <label className="text-xs font-semibold text-cafe-text mb-1 block">Price (₹)</label>
+                  <input type="number" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="input-field py-2 text-sm" placeholder="79" required />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-cafe-text mb-1 block">Category</label>
-                  <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="input-field py-2">
+                  <label className="text-xs font-semibold text-cafe-text mb-1 block">Category</label>
+                  <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="input-field py-2 text-sm">
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div className="col-span-2">
-                  <label className="text-sm font-medium text-cafe-text mb-1 block">Description</label>
-                  <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="input-field py-2 resize-none" rows="2" />
+                  <label className="text-xs font-semibold text-cafe-text mb-1 block">Description</label>
+                  <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="input-field py-2 text-sm resize-none" rows="2" placeholder="Item description..." />
                 </div>
                 <div className="col-span-2">
-                  <label className="text-sm font-medium text-cafe-text mb-1 block">Image URL</label>
-                  <input type="text" value={form.image} onChange={e => setForm({...form, image: e.target.value})} className="input-field py-2" placeholder="https://..." />
+                  <label className="text-xs font-semibold text-cafe-text mb-1 block">Image URL (Optional)</label>
+                  <input type="text" value={form.image} onChange={e => setForm({...form, image: e.target.value})} className="input-field py-2 text-sm" placeholder="https://..." />
                 </div>
-                <div className="col-span-2 flex items-center gap-4">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" checked={form.available} onChange={e => setForm({...form, available: e.target.checked})} className="w-4 h-4 text-primary" />
-                    Available
+                <div className="col-span-2 flex items-center gap-4 pt-1">
+                  <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                    <input type="checkbox" checked={form.available} onChange={e => setForm({...form, available: e.target.checked})} className="w-4 h-4 text-primary rounded" />
+                    Available (In Stock)
                   </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" checked={form.popular} onChange={e => setForm({...form, popular: e.target.checked})} className="w-4 h-4 text-primary" />
-                    Popular (Featured)
+                  <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                    <input type="checkbox" checked={form.popular} onChange={e => setForm({...form, popular: e.target.checked})} className="w-4 h-4 text-primary rounded" />
+                    Popular / Featured
                   </label>
                 </div>
               </div>
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={closeModal} className="flex-1 btn-outline py-2.5">Cancel</button>
-                <button type="submit" disabled={saving} className="flex-1 btn-primary py-2.5 flex items-center justify-center gap-2">
-                  {saving && <Loader2 className="w-4 h-4 animate-spin" />} Save
+              <div className="pt-3 flex gap-3">
+                <button type="button" onClick={closeModal} className="flex-1 btn-outline py-2 text-xs">Cancel</button>
+                <button type="submit" disabled={saving} className="flex-1 btn-primary py-2 text-xs flex items-center justify-center gap-2">
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null} Save Item
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-    </div>
+    </AdminLayout>
   );
 };
 
